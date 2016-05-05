@@ -1,0 +1,6 @@
+[submodule "vicious"]
+	path = vicious
+	url = http://git.sysphere.org/vicious
+[submodule "net_widgets"]
+	path = net_widgets
+	url = git@github.com:plotnikovanton/net_widgets.git
