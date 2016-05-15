@@ -276,6 +276,18 @@ weatherwidget:set_align("left")
 
 volwidget = wibox.widget.textbox()
 vicious.register(volwidget, vicious.widgets.volume, "$1$2", 2, "Master") 
+function volume_down()
+    awful.util.spawn("amixer set 'Master' 1dB-")
+    vicious.force({volwidget,})
+end
+function volume_up()
+    awful.util.spawn("amixer set 'Master' 1dB+")
+    vicious.force({volwidget,})
+end
+function volume_toggle()
+    awful.util.spawn("amixer set 'Master' toggle")
+    vicious.force({volwidget,})
+end
 
 wanwidget = wibox.widget.textbox()
 wanwidget:set_align("center")
@@ -539,11 +551,9 @@ globalkeys = awful.util.table.join(
     awful.key({}, "XF86AudioPlay", mpc.toggle),
     awful.key({}, "XF86AudioNext", mpc.next),
     awful.key({}, "XF86AudioPrev", mpc.prev),
-    awful.key({}, "XF86AudioLowerVolume", function () awful.util.spawn("amixer set 'Master' 1dB- unmute") end),
-    awful.key({}, "XF86AudioRaiseVolume", function () awful.util.spawn("amixer set 'Master' 1dB+ unmute") end),
-    awful.key({}, "XF86AudioMute", function () awful.util.spawn("amixer set 'Master' toggle") end),
-    awful.key({ "Control" }, "XF86AudioLowerVolume", function () awful.util.spawn("amixer set 'PCM' 1dB-") end),
-    awful.key({ "Control" }, "XF86AudioRaiseVolume", function () awful.util.spawn("amixer set 'PCM' 1dB+") end),
+    awful.key({}, "XF86AudioLowerVolume", volume_down),
+    awful.key({}, "XF86AudioRaiseVolume", volume_up),
+    awful.key({}, "XF86AudioMute", volume_toggle),
 
     awful.key({ "Mod1", "Control" }, "m", function() commandviewer.view_command("mount") end),
     awful.key({ "Mod1", "Control" }, "n", function() commandviewer.view_command("netstat --inet --inet6 -pn") end),
