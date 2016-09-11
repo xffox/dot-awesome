@@ -8,6 +8,7 @@ beautiful = require("beautiful")
 naughty = require("naughty")
 vicious = require("vicious")
 wibox = require("wibox")
+mpdstatus = require("mpdstatus")
 -- FIXME:
 --require("inotify")
 
@@ -21,7 +22,7 @@ autorun = require("autorun")
 -- {{{ parameters
 if not pcall(function() parameters = require("parameters") end) then
     parameters = {
-        mpd = {host = "localhost", port = "6600"},
+        mpd = {host = "localhost", port = "6600", fmt="%artist% - %album% - %title% (%date%)"},
         autorun_apps = {},
         autorestart_apps = {},
         terminal_sessions = {},
@@ -557,6 +558,7 @@ globalkeys = awful.util.table.join(
 
     awful.key({ "Mod1", "Control" }, "m", function() commandviewer.view_command("mount") end),
     awful.key({ "Mod1", "Control" }, "n", function() commandviewer.view_command("netstat --inet --inet6 -pn") end),
+    awful.key({ "Mod1", "Control" }, "d", function() mpdstatus.switch_mpd_status(mpc, parameters.mpd.fmt) end),
     awful.key({}, "XF86Battery", function() commandviewer.view_command("sensors") end)
 )
 
