@@ -34,15 +34,18 @@ function find_cover(mpc)
             if music_path ~= nil then
                 local track_path = string.match(track_filename, "(.*)/")
                 if track_path ~= nil then
-                    for file in lfs.dir(music_path .. '/' .. track_path) do
-                        for _, pattern in ipairs(COVER_PATTERNS) do
-                            if string.match(file, pattern) then
-                                res = music_path .. '/' .. track_path .. '/' .. file
+                    local status, dir_iter, dir_obj = pcall(lfs.dir, music_path .. '/' .. track_path)
+                    if status then
+                        for file in dir_iter, dir_obj do
+                            for _, pattern in ipairs(COVER_PATTERNS) do
+                                if string.match(file, pattern) then
+                                    res = music_path .. '/' .. track_path .. '/' .. file
+                                    break
+                                end
+                            end
+                            if res ~= nil then
                                 break
                             end
-                        end
-                        if res ~= nil then
-                            break
                         end
                     end
                 end
