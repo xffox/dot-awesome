@@ -9,11 +9,10 @@
 -- {{{ Main
 theme = {}
 theme.wallpaper_cmd = { "" }
---theme.wallpaper_cmd = { "awsetbg /usr/share/awesome/themes/zenburn/zenburn-background.png" }
 -- }}}
 
 -- {{{ Styles
-theme.font      = "Terminus 8"
+theme.font      = "xos4 Terminus 8"
 
 -- {{{ Colors
 theme.fg_normal = "#DCDCCC"
@@ -27,7 +26,7 @@ theme.bg_urgent = "#3F3F3F"
 -- {{{ Borders
 theme.border_width  = "2"
 theme.border_normal = "#3F3F3F"
-theme.border_focus  = "#6F6F6F"
+theme.border_focus  = "#FF5656"
 theme.border_marked = "#CC9393"
 -- }}}
 

@@ -2,19 +2,19 @@ local awful = require("awful")
 
 local function run_once(prg)
     if prg then
-        awful.util.spawn_with_shell("pgrep -u $USER -x \"" .. prg .. "\" || (" .. prg .. " &)")
+        awful.spawn.with_shell("pgrep -u $USER -x \"" .. prg .. "\" || (" .. prg .. ")")
     end
 end
 
 local function run_restart(prg)
     if prg then
-        awful.util.spawn_with_shell("pkill -u $USER -x \"" .. prg .. "\"; (" .. prg .. " &)")
+        awful.spawn.with_shell("pkill -u $USER -x \"" .. prg .. "\"; (" .. prg .. ")")
     end
 end
 
 local function show_terminal_session(session)
     if os.execute("xwininfo -name '" .. session .. "' >/dev/null 2>&1") ~= 0 then
-        awful.util.spawn_with_shell("(urxvt -title '" .. session .. "' -e sh -c \"while ! pgrep -u $USER -x tmux; do sleep 1;done; exec tmux attach -t '" .. session .. "'\" &)")
+        awful.spawn.with_shell("(urxvt -title '" .. session .. "' -e sh -c \"while ! pgrep -u $USER -fx 'tmux start'; do sleep 1;done; exec tmux attach -t '" .. session .. "'\")")
     end
 end
 

@@ -8,9 +8,11 @@ beautiful = require("beautiful")
 naughty = require("naughty")
 vicious = require("vicious")
 wibox = require("wibox")
+gears = require("gears")
 mpdstatus = require("mpdstatus")
 -- FIXME:
 --require("inotify")
+firerule_widget = require('firerule_widget')
 
 net_widgets = require("net_widgets")
 
@@ -26,7 +28,8 @@ if not pcall(function() parameters = require("parameters") end) then
         autorun_apps = {},
         autorestart_apps = {},
         terminal_sessions = {},
-        mailboxes = {}
+        mailboxes = {},
+        interfaces = {'wlan0'}
     }
 end
 mpd = parameters.mpd
@@ -37,6 +40,7 @@ mpc.configure(mpd.host, mpd.port)
 -- {{{ Variable definitions
 -- Themes define colours, icons, and wallpapers
 beautiful.init(awful.util.getdir("config") .. "/themes/zenburnm/theme.lua")
+gears.wallpaper.set(gears.color.create_solid_pattern(gears.color.parse_color("#000000")))
 
 -- This is used later as the default terminal and editor to run.
 terminal = "urxvt"
@@ -45,7 +49,7 @@ editor_cmd = terminal .. " -e " .. editor
 
 color_red = "DarkSalmon"
 color_green = "LimeGreen"
-color_blue = "SteelBlue"
+color_blue = "LightBlue"
 
 -- Default modkey.
 -- Usually, Mod4 is the key with a logo between Control and Alt.
@@ -86,6 +90,21 @@ for s = 1, screen.count() do
             {awful.layout.suit.fair, layouts[1], layouts[1], awful.layout.suit.floating})
     end
 end
+
+-- TODO: use tag names?
+app_tags = {
+    im = tags[1][1],
+    mc = tags[1][2],
+    dev = tags[1][7],
+    news = tags[1][5]
+}
+if screen.count() == 1 then
+    app_tags.web = tags[1][3]
+    app_tags.read = tags[1][4]
+else
+    app_tags.web = tags[2][3]
+    app_tags.read = tags[2][2]
+end
 -- }}}
 
 -- {{{ Menu
@@ -111,7 +130,7 @@ mylauncher = awful.widget.launcher({ image = beautiful.awesome_icon,
 separator = wibox.widget.textbox()
 separator:set_text("::")
 
-mytextclock = awful.widget.textclock()
+mytextclock = wibox.widget.textclock()
 
 -- Create a systray
 mysystray = wibox.widget.systray()
@@ -133,7 +152,12 @@ vicious.register(memwidget, vicious.widgets.mem, "$2MB($1%):$6MB($5%)", 3)
 -- cpuwidget:set_gradient_colors({ "#FF5656", "#88A175", "#AECF96" })
 cpuwidget = wibox.widget.textbox()
 cpuwidget:set_align("center")
-vicious.register(cpuwidget, vicious.widgets.cpu, '<span color="'..color_blue..'">$2% $3% $4% $5%</span>', 3)
+vicious.register(cpuwidget, vicious.widgets.cpu,
+    function(widget, args)
+        return string.format(
+            "<span color='%s'>%3s%%</span>",
+            color_blue, args[1])
+    end, 3)
 
 -- Network
 netwidget = wibox.widget.textbox()
@@ -146,11 +170,10 @@ function interface_up(iface)
     end
     return false
 end
-interfaces = {'bond0', 'ppp0'}
 vicious.register(netwidget, vicious.widgets.net,
     function(widget, args)
         local result = {}
-        for i, iface in ipairs(interfaces) do
+        for i, iface in ipairs(parameters.interfaces) do
             --check existence of the interface by one value
             if interface_up(iface) and args['{'..iface..' down_kb}'] then
                 table.insert(result, string.format(
@@ -224,7 +247,6 @@ vicious.register(thermwidget, vicious.widgets.thermal, "$1C", 5, {"thermal_zone0
 -- wifi
 wifiwidget = wibox.widget.textbox()
 vicious.register(wifiwidget, vicious.widgets.wifi, "${ssid}", 11, "wlan0")
-net_wireless = net_widgets.wireless({interface="wlan0"})
 
 mdirwidget = wibox.widget.textbox()
 vicious.register(mdirwidget, vicious.widgets.mdir, " $1\226\156\137 ", 17, parameters.mailboxes)
@@ -242,7 +264,12 @@ vicious.register(mpdwidget, vicious.widgets.mpd,
 
 uptimewidget = wibox.widget.textbox()
 uptimewidget:set_align("center")
-vicious.register(uptimewidget, vicious.widgets.uptime, "$1d:$2h:$3m $4,$5,$6", 61)
+vicious.register(uptimewidget, vicious.widgets.uptime,
+    function(widget, args)
+        return string.format(
+            "%.2f,%.2f,%.2f",
+            args[4], args[5], args[6])
+    end, 61)
 
 batwidget = wibox.widget.textbox()
 batwidget:set_align("center")
@@ -250,7 +277,11 @@ vicious.register(batwidget, vicious.widgets.bat, '<span color="' .. color_red ..
 
 cpuinfwidget = wibox.widget.textbox()
 cpuinfwidget:set_align("center")
-vicious.register(cpuinfwidget, vicious.widgets.cpuinf, "${cpu0 mhz}MHz", 5);
+vicious.register(cpuinfwidget, vicious.widgets.cpuinf,
+    function(widget, args)
+        return string.format(
+            "%4sMHz", args["{cpu0 mhz}"])
+    end, 5);
 
 weatherwidget = wibox.widget.textbox()
 weatherwidget:set_align("left")
@@ -278,15 +309,15 @@ weatherwidget:set_align("left")
 volwidget = wibox.widget.textbox()
 vicious.register(volwidget, vicious.widgets.volume, "$1$2", 2, "Master") 
 function volume_down()
-    awful.util.spawn("amixer set 'Master' 1dB-")
+    awful.spawn("amixer set 'Master' 1dB-")
     vicious.force({volwidget,})
 end
 function volume_up()
-    awful.util.spawn("amixer set 'Master' 1dB+")
+    awful.spawn("amixer set 'Master' 1dB+")
     vicious.force({volwidget,})
 end
 function volume_toggle()
-    awful.util.spawn("amixer set 'Master' toggle")
+    awful.spawn("amixer set 'Master' toggle")
     vicious.force({volwidget,})
 end
 
@@ -337,6 +368,7 @@ wanwidget:set_align("center")
 --end
 --
 --register_deadline(deadline)
+frwidget = firerule_widget.create_widget()
 
 -- Create a wibox for each screen and add it
 mywibox = {}
@@ -399,8 +431,8 @@ for s = 1, screen.count() do
 
     if s == 1 then
         -- Create the wibox
-        mywibox[s] = awful.wibox({ position = "top", screen = s })
-        bottomwibox[s] = awful.wibox({ position = "bottom", screen = s })
+        mywibox[s] = awful.wibar({ position = "top", screen = s })
+        bottomwibox[s] = awful.wibar({ position = "bottom", screen = s })
         -- Add widgets to the wibox - order matters
         toplayout = wibox.layout.align.horizontal()
         toprightlayout = wibox.layout.fixed.horizontal()
@@ -410,13 +442,16 @@ for s = 1, screen.count() do
         toprightlayout:add(mdirwidget)
         toprightlayout:add(separator)
         toprightlayout:add(volwidget)
+        toprightlayout:add(separator)
+        toprightlayout:add(frwidget)
+        toprightlayout:add(separator)
         if s == 1 then toprightlayout:add(mysystray) end
         toprightlayout:add(datewidget)
         toprightlayout:add(mylayoutbox[s])
         topleftlayout = wibox.layout.fixed.horizontal()
         topleftlayout:add(mytaglist[s])
         topleftlayout:add(mypromptbox[s])
-        topmiddlelayout = wibox.layout.fixed.horizontal()
+        topmiddlelayout = wibox.layout.flex.horizontal()
         topmiddlelayout:add(mytasklist[s])
         toplayout:set_right(toprightlayout)
         toplayout:set_left(topleftlayout)
@@ -424,33 +459,34 @@ for s = 1, screen.count() do
         mywibox[s]:set_widget(toplayout)
         bottomlayout = wibox.layout.align.horizontal()
         bottomleftlayout = wibox.layout.fixed.horizontal()
-        bottomleftlayout:add(wibox.layout.constraint(uptimewidget, "min", 165))
         bottomleftlayout:add(separator)
-        bottomleftlayout:add(wibox.layout.constraint(cpuinfwidget, "min", 55))
+        bottomleftlayout:add(cpuwidget)
         bottomleftlayout:add(separator)
-        bottomleftlayout:add(wibox.layout.constraint(thermwidget, "min", 25))
+        bottomleftlayout:add(uptimewidget)
         bottomleftlayout:add(separator)
-        bottomleftlayout:add(wibox.layout.constraint(batwidget, "min", 80))
+        bottomleftlayout:add(wibox.container.constraint(memwidget, "min", 155)) 
         bottomleftlayout:add(separator)
         bottomrightlayout = wibox.layout.fixed.horizontal()
         bottomrightlayout:add(separator) 
         bottomrightlayout:add(fswidget) 
         bottomrightlayout:add(separator)
-        bottomrightlayout:add(wifiwidget)
-        bottomrightlayout:add(net_wireless)
-        bottomrightlayout:add(separator)
         bottomrightlayout:add(diowidget) 
+        bottomrightlayout:add(separator)
+        bottomrightlayout:add(wifiwidget)
         bottomrightlayout:add(separator)
         bottomrightlayout:add(netwidget) 
         bottomrightlayout:add(separator)
-        bottomrightlayout:add(wibox.layout.constraint(cpuwidget, "min", 115))
+        bottomrightlayout:add(wibox.container.constraint(cpuinfwidget, "min", 55))
         bottomrightlayout:add(separator)
-        bottomrightlayout:add(wibox.layout.constraint(memwidget, "min", 155)) 
+        bottomrightlayout:add(wibox.container.constraint(thermwidget, "min", 25))
+        bottomrightlayout:add(separator)
+        bottomrightlayout:add(wibox.container.constraint(batwidget, "min", 80))
+        bottomrightlayout:add(separator)
         bottomlayout:set_left(bottomleftlayout)
         bottomlayout:set_right(bottomrightlayout)
         bottomwibox[s]:set_widget(bottomlayout)
     else
-        mywibox[s] = awful.wibox({ position = "top", screen = s })
+        mywibox[s] = awful.wibar({ position = "top", screen = s })
         toplayout = wibox.layout.align.horizontal()
         toprightlayout = wibox.layout.fixed.horizontal()
         toprightlayout:add(separator)
@@ -461,7 +497,7 @@ for s = 1, screen.count() do
         topleftlayout = wibox.layout.fixed.horizontal()
         topleftlayout:add(mytaglist[s])
         topleftlayout:add(mypromptbox[s])
-        topmiddlelayout = wibox.layout.fixed.horizontal()
+        topmiddlelayout = wibox.layout.flex.horizontal()
         topmiddlelayout:add(mytasklist[s])
         toplayout:set_left(topleftlayout)
         toplayout:set_right(toprightlayout)
@@ -512,7 +548,7 @@ globalkeys = awful.util.table.join(
         end),
 
     -- Standard program
-    awful.key({ modkey,           }, "Return", function () awful.util.spawn(terminal) end),
+    awful.key({ modkey,           }, "Return", function () awful.spawn(terminal) end),
     awful.key({ modkey, "Control" }, "r", awesome.restart),
     awful.key({ modkey, "Shift"   }, "q", awesome.quit),
 
@@ -526,22 +562,22 @@ globalkeys = awful.util.table.join(
     awful.key({ modkey, "Shift"   }, "space", function () awful.layout.inc(layouts, -1) end),
 
     -- Prompt
-    awful.key({ modkey },            "r",     function () mypromptbox[mouse.screen]:run() end),
+    awful.key({ modkey },            "r",     function () mypromptbox[awful.screen.focused().index]:run() end),
 
     awful.key({ modkey }, "x",
               function ()
                   awful.prompt.run({ prompt = "Run Lua code: " },
-                  mypromptbox[mouse.screen].widget,
+                  mypromptbox[awful.screen.focused().index].widget,
                   awful.util.eval, nil,
                   awful.util.getdir("cache") .. "/history_eval")
               end),
 
-    awful.key({ "Mod1", "Control" }, "f", function () awful.util.spawn("firefox") end),
-    awful.key({}, "XF86Launch1", function () awful.util.spawn("firefox") end),
-    awful.key({ "Mod1", "Control" }, "l", function () awful.util.spawn("xscreensaver-command -lock") end),
-    awful.key({}, "XF86ScreenSaver", function () awful.util.spawn("xscreensaver-command -lock") end),
-    awful.key({ "Mod1", "Control" }, "v", function () awful.util.spawn("gvim") end),
-    awful.key({}, "XF86Launch2", function () awful.util.spawn("gvim") end),
+    awful.key({ "Mod1", "Control" }, "f", function () awful.spawn("firefox") end),
+    awful.key({}, "XF86Launch1", function () awful.spawn("firefox") end),
+    awful.key({ "Mod1", "Control" }, "l", function () awful.spawn("xscreensaver-command -lock") end),
+    awful.key({}, "XF86ScreenSaver", function () awful.spawn("xscreensaver-command -lock") end),
+    awful.key({ "Mod1", "Control" }, "v", function () awful.spawn("gvim") end),
+    awful.key({}, "XF86Launch2", function () awful.spawn("gvim") end),
 
     -- Media
     awful.key({ "Mod1", "Control" }, "a", mpc.prev),
@@ -572,8 +608,7 @@ clientkeys = awful.util.table.join(
     awful.key({ modkey,           }, "n",      function (c) c.minimized = not c.minimized    end),
     awful.key({ modkey,           }, "m",
         function (c)
-            c.maximized_horizontal = not c.maximized_horizontal
-            c.maximized_vertical   = not c.maximized_vertical
+            c.maximized = not c.maximized
         end)
 )
 
@@ -590,28 +625,30 @@ for i = 1, keynumber do
     globalkeys = awful.util.table.join(globalkeys,
         awful.key({ modkey }, "#" .. i + 9,
                   function ()
-                        local screen = mouse.screen
-                        if tags[screen][i] then
-                            awful.tag.viewonly(tags[screen][i])
-                        end
+                      local screen = awful.screen.focused().index
+                      if tags[screen][i] then
+                          tags[screen][i]:view_only()
+                      end
                   end),
         awful.key({ modkey, "Control" }, "#" .. i + 9,
                   function ()
-                      local screen = mouse.screen
+                      local screen = awful.screen.focused().index
                       if tags[screen][i] then
                           awful.tag.viewtoggle(tags[screen][i])
                       end
                   end),
         awful.key({ modkey, "Shift" }, "#" .. i + 9,
                   function ()
-                      if client.focus and tags[client.focus.screen][i] then
-                          awful.client.movetotag(tags[client.focus.screen][i])
+                      focused_client = client.focus
+                      if focused_client and tags[focused_client.screen.index][i] then
+                          focused_client:move_to_tag(tags[focused_client.screen.index][i])
                       end
                   end),
         awful.key({ modkey, "Control", "Shift" }, "#" .. i + 9,
                   function ()
-                      if client.focus and tags[client.focus.screen][i] then
-                          awful.client.toggletag(tags[client.focus.screen][i])
+                      focused_client = client.focus
+                      if focused_client and tags[focused_client.screen.index][i] then
+                          focused_client:toggle_tag(tags[focused_client.screen.index][i])
                       end
                   end))
 end
@@ -628,20 +665,28 @@ root.keys(globalkeys)
 -- {{{ Rules
 rules.rules = {
     -- All clients will match this rule.
-    { rule = { },
+    { rule = {},
       properties = { border_width = beautiful.border_width,
                      border_color = beautiful.border_normal,
                      focus = true,
                      keys = clientkeys,
-                     buttons = clientbuttons } },
+                     buttons = clientbuttons,
+                     screen = awful.screen.focused,
+                 } },
     { rule = { class = "MPlayer" },
       properties = { floating = true } },
-    { rule = { class = "Pidgin" },
+    { rule = { class = "mpv" },
       properties = { floating = true } },
     { rule = { class = "Pidgin", role = "conversation" },
-      properties = { floating = false, tag = tags[1][1] } },
+      properties = { tag = app_tags.im } },
+    { rule = { class = "Pidgin", role = "multifield" },
+      properties = { tag = app_tags.im } },
     { rule = { class = "Pidgin", role = "buddy_list" },
-      properties = { maximized_vertical = true } },
+      properties = {
+          floating = true,
+          maximized_vertical = true,
+          placement = awful.placement.right,
+      } },
     { rule = { class = "pinentry" },
       properties = { floating = true } },
     { rule = { class = "gimp" },
@@ -652,38 +697,32 @@ rules.rules = {
       properties = { floating = true } },
     { rule = { name = "glxgears" },
       properties = { floating = true } },
-    { rule = { class = "Firefox" },
-      properties = { tag = tags[1][3] } },
+    { rule = { class = "Firefox", role="browser" },
+      properties = { tag = app_tags.web } },
     { rule = { class = "chromium-browser-chromium" },
-      properties = { tag = tags[1][3] } },
+      properties = { tag = app_tags.web } },
     { rule = { class = "Evince" },
-      properties = { tag = tags[1][4] } },
+      properties = { tag = app_tags.read } },
     { rule = { class = "Zathura" },
-      properties = { tag = tags[1][4] } },
+      properties = { tag = app_tags.read } },
+    { rule = { class = "fbreader" },
+      properties = { tag = app_tags.read } },
     { rule = { name = "vim" },
-      properties = { tag = tags[1][7] } },
+      properties = { tag = app_tags.dev } },
     { rule = { name = "mc" },
-      properties = { tag = tags[1][2] } },
+      properties = { tag = app_tags.mc } },
     { rule = { name = "news" },
-      properties = { tag = tags[1][5] } },
+      properties = { tag = app_tags.news } },
     { rule = { name = "chat" },
-      properties = { tag = tags[1][1] } },
+      properties = { tag = app_tags.im } },
 }
 -- }}}
 
 -- {{{ Signals
 -- Signal function to execute when a new client appears.
-client.add_signal("manage", function (c, startup)
+client.connect_signal("manage", function (c, startup)
     -- Add a titlebar
     -- awful.titlebar.add(c, { modkey = modkey })
-
-    -- Enable sloppy focus
-    c:add_signal("mouse::enter", function(c)
-        if awful.layout.get(c.screen) ~= awful.layout.suit.magnifier
-            and awful.client.focus.filter(c) then
-            client.focus = c
-        end
-    end)
 
     if not startup then
         -- Set the windows at the slave,
@@ -698,8 +737,8 @@ client.add_signal("manage", function (c, startup)
     end
 end)
 
-client.add_signal("focus", function(c) c.border_color = beautiful.border_focus end)
-client.add_signal("unfocus", function(c) c.border_color = beautiful.border_normal end)
+client.connect_signal("focus", function(c) c.border_color = beautiful.border_focus end)
+client.connect_signal("unfocus", function(c) c.border_color = beautiful.border_normal end)
 -- }}}
 
 autorun.run_apps(parameters.autorun_apps)
